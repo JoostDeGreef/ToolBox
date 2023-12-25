@@ -5,6 +5,7 @@
 using namespace testing;
 using namespace ToolBox;
 
+template<typename T>
 class FIFOTest : public Test
 {
 protected:
@@ -17,9 +18,16 @@ protected:
     }
 };
 
-TEST_F(FIFOTest, PushTryPop)
+using MyTypes = ::testing::Types<
+    FIFO_NoLock<int>,
+    FIFO_NoLock<int,2>,
+    FIFO_LockLess<int>,
+    FIFO_LockLess<int,2>> ;
+TYPED_TEST_SUITE(FIFOTest, MyTypes);
+
+TYPED_TEST(FIFOTest, PushTryPop)
 {
-    FIFO<int> q;
+    TypeParam q;
     std::vector<int> v{ 1,2,3 },r;
     int tmp;
     EXPECT_FALSE(q.TryPop(tmp));
@@ -31,9 +39,9 @@ TEST_F(FIFOTest, PushTryPop)
     EXPECT_EQ(v, r);
 }
 
-TEST_F(FIFOTest, PushPop)
+TYPED_TEST(FIFOTest, PushPop)
 {
-    FIFO<int,2> q;
+    TypeParam q;
     std::vector<int> v{ 1,2,3 }, r;
     for (const int i : v)
     {
