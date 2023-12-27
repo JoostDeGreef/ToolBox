@@ -31,8 +31,11 @@ public:
         : blocks(nullptr)
         , first(nullptr)
         , last(nullptr)
+        , free(0)
+        , used(0)
     {
         auto block = NewBlock();
+        free.store(BLOCK_SIZE);
         blocks = block;
         first = &block->nodes[0];
         last = &block->nodes[0];
@@ -50,8 +53,7 @@ public:
             dataAlloc.destroy(&f->data);
             f = f->next;
         }
-        Block* b = nullptr;
-        b = blocks.exchange(b);
+        Block* b = blocks.load();
         assert(b != nullptr);
         while (b)
         {
@@ -71,23 +73,17 @@ public:
             l =  last.exchange(l);
         }
         dataAlloc.construct(&l->data, t);
+        if (--free == 0)
+        {
+            Block* new_block = AddBlock();
+            new_block->nodes[BLOCK_SIZE - 1].next = l->next;
+            l->next = &new_block->nodes[0];
+            free.fetch_add(BLOCK_SIZE);
+        }
         l = l->next;
         l = last.exchange(l);
+        ++used;
         assert(!l);
-
-        //Node* f = first;
-        //while (!f)
-        //{
-        //    std::this_thread::yield();
-        //    f = first;
-        //}
-        //if (f != l)
-        //{
-        //    // new_block contains a small ring buffer, add it to the big ring buffer
-        //    Block* new_block = AddBlock();
-        //    new_block->nodes[BLOCK_SIZE - 1].next = last->next;
-        //    last->next = &new_block->nodes[0];
-        //}
     }
 
     template <class ITER>
@@ -109,20 +105,20 @@ public:
             std::this_thread::yield();
             f = first.exchange(f);
         }
-        Node* l = last;
-        while (!l)
-        {
-            std::this_thread::yield();
-            l = last;
-        }
-        if (f!=l)
+        if (used.load()>0)
         {
             res = true;
             t = std::move(f->data);
             dataAlloc.destroy(&f->data);
             f = f->next;
+            --used;
+            f = first.exchange(f);
+            ++free;
         }
-        f = first.exchange(f);
+        else
+        {
+            f = first.exchange(f);
+        }
         assert(!f);
         return res;
     }
@@ -151,20 +147,12 @@ private:
         block->next = nullptr;
         return block;
     }
+    // store new_block in the linked list of blocks
     Block * AddBlock()
     {
         Block* new_block = NewBlock();
-        // store new_block in the linked list of blocks
-        Block* block = nullptr;
-        block = blocks.exchange(block);
-        while (!block)
-        {
-            std::this_thread::yield();
-            blocks.exchange(block);
-        }
-        block->next = new_block;
-        block = blocks.exchange(block);
-        assert(!block);
+        new_block->next = blocks.load();
+        blocks.store(new_block);
         return new_block;
     }
 
@@ -174,4 +162,6 @@ private:
     std::atomic<Block*> blocks;
     std::atomic<Node*> first;
     std::atomic<Node*> last;
+    std::atomic<size_t> free;
+    std::atomic<size_t> used;
 };

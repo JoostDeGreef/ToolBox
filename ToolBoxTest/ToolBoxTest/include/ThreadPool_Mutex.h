@@ -138,7 +138,7 @@ private:
         else if (n < thread_count)
         {
             std::vector<std::future<void>> futures;
-            futures.reserve((size_t)(thread_count-n));
+            futures.reserve(thread_count-n);
             {
                 std::unique_lock<std::mutex> lock(mtx);
                 for (int i = n; i < thread_count; ++i)

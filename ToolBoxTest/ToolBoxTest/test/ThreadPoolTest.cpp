@@ -25,7 +25,7 @@ TEST_F(ThreadPoolTest, ForAll_none)
         {
             auto t = s;
             std::sort(t.begin(), t.end());
-            SUCCEED() << "Processed " << s << " into " << t;
+            //SUCCEED() << "Processed " << s << " into " << t;
             return t;
         });
     EXPECT_EQ(v[0], res[2]);
@@ -39,7 +39,7 @@ TEST_F(ThreadPoolTest, ForAll_few)
         {
             auto t = s;
             std::sort(t.begin(), t.end());
-            SUCCEED() << "Processed " << s << " into " << t;
+            //SUCCEED() << "Processed " << s << " into " << t;
             return t;
         });
     EXPECT_EQ(v[0], res[2]);
@@ -53,7 +53,7 @@ TEST_F(ThreadPoolTest, ForAll_many)
         {
             auto t = s;
             std::sort(t.begin(), t.end());
-            SUCCEED() << "Processed " << s << " into " << t;
+            //SUCCEED() << "Processed " << s << " into " << t;
             return t;
         });
     EXPECT_EQ(v[0], res[2]);
@@ -67,7 +67,7 @@ TEST_F(ThreadPoolTest, Enqueue_none)
         {
             auto t = s;
             std::sort(t.begin(), t.end());
-            SUCCEED() << "Processed " << s << " into " << t;
+            //SUCCEED() << "Processed " << s << " into " << t;
             return t;
         },s);
     EXPECT_EQ(std::string("abc"), res.get());
@@ -81,7 +81,7 @@ TEST_F(ThreadPoolTest, Enqueue_few)
         {
             auto t = s;
             std::sort(t.begin(), t.end());
-            SUCCEED() << "Processed " << s << " into " << t;
+            //SUCCEED() << "Processed " << s << " into " << t;
             return t;
         }, s);
     EXPECT_EQ(std::string("abc"), res.get());
