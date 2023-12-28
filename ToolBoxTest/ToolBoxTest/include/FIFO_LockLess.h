@@ -89,10 +89,29 @@ public:
     template <class ITER>
     void Push(ITER iter_first, ITER iter_last)
     {
+        size_t n = std::distance(iter_first, iter_last);
+        Node* l = nullptr;
+        l = last.exchange(l);
+        while (!l)
+        {
+            std::this_thread::yield();
+            l = last.exchange(l);
+        }
+        while (free.load() <= n)
+        {
+            Block* new_block = AddBlock();
+            new_block->nodes[BLOCK_SIZE - 1].next = l->next;
+            l->next = &new_block->nodes[0];
+            free.fetch_add(BLOCK_SIZE);
+        }
         for (auto iter = iter_first; iter != iter_last; ++iter)
         {
-            Push(*iter);
+            dataAlloc.construct(&l->data, *iter);
+            l = l->next;
         }
+        used.fetch_add(n);
+        l = last.exchange(l);
+        assert(!l);
     }
 
     bool TryPop(T& t)
@@ -123,15 +142,37 @@ public:
         return res;
     }
 
-    std::vector<T> Pop(const size_t n = 1)
+    std::vector<T> Pop(size_t n = 1)
     {
         std::vector<T> res;
-        res.reserve(n);
-        T tmp;
-        while ((res.size()<n) && TryPop(tmp))
+        Node* f = nullptr;
+        f = first.exchange(f);
+        while (!f)
         {
-            res.emplace_back(std::move(tmp));
+            std::this_thread::yield();
+            f = first.exchange(f);
         }
+        size_t m = used.load();
+        if (m < n) n = m;
+        res.reserve(n);
+
+        if (n > 0)
+        {
+            for (size_t i = 0; i < n; ++i)
+            {
+                res.emplace_back(std::move(f->data));
+                dataAlloc.destroy(&f->data);
+                f = f->next;
+            }
+            used.fetch_sub(n);
+            f = first.exchange(f);
+            free.fetch_add(n);
+        }
+        else
+        {
+            f = first.exchange(f);
+        }
+        assert(!f);
         return res;
     }
 private:

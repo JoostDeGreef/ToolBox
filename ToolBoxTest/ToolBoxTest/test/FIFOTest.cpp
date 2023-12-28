@@ -151,7 +151,7 @@ using MyConcurrentTypes = ::testing::Types<
     FIFO_LockLess<size_t, 2>>;
 TYPED_TEST_SUITE(FIFOConcurrencyTest, MyConcurrentTypes);
 
-TYPED_TEST(FIFOConcurrencyTest, PushTryPop_OneProducerFewConsumers)
+TYPED_TEST(FIFOConcurrencyTest, PushTryPop_OneProducerFewConsumers_Singles)
 {
     size_t data_per_consumer = 10000;
     auto res = RunConcurrentTest<TypeParam>(4, 1, 0, 0, data_per_consumer);
@@ -170,7 +170,7 @@ TYPED_TEST(FIFOConcurrencyTest, PushTryPop_OneProducerFewConsumers)
     }
 }
 
-TYPED_TEST(FIFOConcurrencyTest, PushTryPop_FewProducersFewConsumers)
+TYPED_TEST(FIFOConcurrencyTest, PushTryPop_FewProducersFewConsumers_Singles)
 {
     size_t data_per_consumer = 10000;
     auto res = RunConcurrentTest<TypeParam>(4, 4, 0, 0, data_per_consumer);
@@ -188,7 +188,7 @@ TYPED_TEST(FIFOConcurrencyTest, PushTryPop_FewProducersFewConsumers)
     }
 }
 
-TYPED_TEST(FIFOConcurrencyTest, PushTryPop_ManyProducersManyConsumers)
+TYPED_TEST(FIFOConcurrencyTest, PushTryPop_ManyProducersManyConsumers_Singles)
 {
     size_t data_per_consumer = 10000;
     auto res = RunConcurrentTest<TypeParam>(32, 16, 0, 0, data_per_consumer);
@@ -206,10 +206,28 @@ TYPED_TEST(FIFOConcurrencyTest, PushTryPop_ManyProducersManyConsumers)
     }
 }
 
+TYPED_TEST(FIFOConcurrencyTest, PushTryPop_ManyProducersManyConsumers_Batches)
+{
+    size_t data_per_consumer = 10000;
+    auto res = RunConcurrentTest<TypeParam>(0, 0, 32, 16, data_per_consumer);
+    // check results
+    std::vector<size_t> result;
+    for (auto& v : res)
+    {
+        EXPECT_EQ(data_per_consumer, v.size());
+        result.insert(result.end(), v.begin(), v.end());
+    }
+    std::sort(result.begin(), result.end());
+    for (size_t i = 0; i < result.size(); ++i)
+    {
+        ASSERT_EQ(i, result[i]) << "Queued value not recovered";
+    }
+}
+
 TYPED_TEST(FIFOConcurrencyTest, PushTryPop_ManyProducersManyConsumers_BatchesAndSingles)
 {
     size_t data_per_consumer = 10000;
-    auto res = RunConcurrentTest<TypeParam>(32, 16, 16, 8, data_per_consumer);
+    auto res = RunConcurrentTest<TypeParam>(16, 8, 16, 8, data_per_consumer);
     // check results
     std::vector<size_t> result;
     for (auto& v : res)
