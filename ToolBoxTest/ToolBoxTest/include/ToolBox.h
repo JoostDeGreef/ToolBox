@@ -4,7 +4,10 @@
 #include <atomic>
 #include <cassert>
 #include <chrono>
+#include <cmath>
+//#include <concepts>
 #include <condition_variable>
+#include <cstdint>
 #include <fstream>
 #include <functional>
 #include <future>
@@ -19,6 +22,7 @@
 #include <regex>
 #include <set>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -29,4 +33,5 @@ namespace ToolBox
 {
 #include "FIFO.h"
 #include "ThreadPool.h"
+#include "Binary.h"
 }

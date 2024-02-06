@@ -50,7 +50,7 @@ public:
         assert(f != nullptr && l != nullptr);
         while (f!=l)
         {
-            dataAlloc.destroy(&f->data);
+            std::allocator_traits<decltype(dataAlloc)>::destroy(dataAlloc, &f->data);
             f = f->next;
         }
         Block* b = blocks.load();
@@ -59,7 +59,7 @@ public:
         {
             Block* t = b;
             b = t->next;
-            blockAlloc.deallocate(t,1);
+            std::allocator_traits<decltype(blockAlloc)>::deallocate(blockAlloc,t,1);
         }
     }
 
@@ -72,7 +72,7 @@ public:
             std::this_thread::yield();
             l =  last.exchange(l);
         }
-        dataAlloc.construct(&l->data, t);
+        std::allocator_traits<decltype(dataAlloc)>::construct(dataAlloc, &l->data, t);
         if (--free == 0)
         {
             Block* new_block = AddBlock();
@@ -106,7 +106,7 @@ public:
         }
         for (auto iter = iter_first; iter != iter_last; ++iter)
         {
-            dataAlloc.construct(&l->data, *iter);
+            std::allocator_traits<decltype(dataAlloc)>::construct(dataAlloc, &l->data, *iter);
             l = l->next;
         }
         used.fetch_add(n);
@@ -128,7 +128,7 @@ public:
         {
             res = true;
             t = std::move(f->data);
-            dataAlloc.destroy(&f->data);
+            std::allocator_traits<decltype(dataAlloc)>::destroy(dataAlloc,&f->data);
             f = f->next;
             --used;
             f = first.exchange(f);
@@ -161,7 +161,7 @@ public:
             for (size_t i = 0; i < n; ++i)
             {
                 res.emplace_back(std::move(f->data));
-                dataAlloc.destroy(&f->data);
+                std::allocator_traits<decltype(dataAlloc)>::destroy(dataAlloc, &f->data);
                 f = f->next;
             }
             used.fetch_sub(n);
@@ -175,6 +175,7 @@ public:
         assert(!f);
         return res;
     }
+
 private:
     // Create a new block of nodes, initialize as one ring;
     Block * NewBlock()

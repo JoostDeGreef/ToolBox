@@ -21,6 +21,8 @@ protected:
 using MyTypes = ::testing::Types<
     FIFO_NoLock<int>,
     FIFO_NoLock<int,2>,
+    FIFO_Mutex<int>,
+    FIFO_Mutex<int, 2>,
     FIFO_LockLess<int>,
     FIFO_LockLess<int,2>> ;
 TYPED_TEST_SUITE(FIFOInterfaceTest, MyTypes);
@@ -82,19 +84,19 @@ public:
                 }
             }
         };
-        auto thread_func_producer = [&](size_t min,size_t max)
-        {
-            for (size_t i = min; i < max; ++i)
-            {
-                q.Push(i);
-            }
-        };
         auto thread_func_batch_consumer = [&](std::vector<size_t>& r)
         {
             while (r.size() < data_per_consumer)
             {
                 std::vector<size_t> v = q.Pop(data_per_consumer - r.size());
                 r.insert(r.end(), v.begin(), v.end());
+            }
+        };
+        auto thread_func_producer = [&](size_t min,size_t max)
+        {
+            for (size_t i = min; i < max; ++i)
+            {
+                q.Push(i);
             }
         };
         auto thread_func_batch_producer = [&](size_t min, size_t max)
@@ -147,8 +149,10 @@ public:
 };
 
 using MyConcurrentTypes = ::testing::Types<
+    FIFO_Mutex<size_t>,
+    FIFO_Mutex<size_t, 2>,
     FIFO_LockLess<size_t>,
-    FIFO_LockLess<size_t, 2>>;
+    FIFO_LockLess<size_t, 2 >> ;
 TYPED_TEST_SUITE(FIFOConcurrencyTest, MyConcurrentTypes);
 
 TYPED_TEST(FIFOConcurrencyTest, PushTryPop_OneProducerFewConsumers_Singles)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "FIFO_NoLock.h"
+#include "FIFO_Mutex.h"
 #include "FIFO_LockLess.h"
 
 template<typename T,size_t BLOCK_SIZE = 256>

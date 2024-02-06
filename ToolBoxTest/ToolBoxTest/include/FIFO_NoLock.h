@@ -35,11 +35,11 @@ public:
         {
             auto t = first;
             first = t->next;
-            alloc.destroy(t);
+            std::allocator_traits<decltype(alloc)>::destroy(alloc, t);
         }
         for (Node* block : blocks)
         {
-            alloc.deallocate(block, BLOCK_SIZE);
+            std::allocator_traits<decltype(alloc)>::deallocate(alloc, block, BLOCK_SIZE);
         }
     }
 
@@ -48,7 +48,7 @@ public:
         FillStore(1);
         Node* p = store.back();
         store.pop_back();
-        alloc.construct(p, t);
+        std::allocator_traits<decltype(alloc)>::construct(alloc, p, t);
         if (last)
         {
             last->next = p;
@@ -72,7 +72,7 @@ public:
             for (auto iter = iter_first; iter != iter_last; ++iter)
             {
                 Node* p = store[index++];
-                alloc.construct(p, *iter);
+                std::allocator_traits<decltype(alloc)>::construct(alloc, p, *iter);
                 if (last)
                 {
                     last->next = p;
@@ -103,7 +103,7 @@ public:
             t = std::move(first->data);
             Node* p = first;
             first = p->next;
-            alloc.destroy(p);
+            std::allocator_traits<decltype(alloc)>::destroy(alloc, p);
             store.push_back(p);
             if (!first)
             {
@@ -122,7 +122,7 @@ public:
             res.emplace_back(std::move(first->data));
             Node* p = first;
             first = first->next;
-            alloc.destroy(p);
+            std::allocator_traits<decltype(alloc)>::destroy(alloc, p);
             store.push_back(p);
         }
         if (!first)
@@ -131,6 +131,7 @@ public:
         }
         return res;
     }
+
 private:
     void AddBlock()
     {

@@ -22,7 +22,7 @@ public:
     template<typename Func, typename... Args>
     auto Enqueue(Func f, Args &... args)
     {
-        using return_type = std::result_of_t<Func(Args &...)>;
+        using return_type = std::invoke_result_t<Func,Args &...>;
         auto task = std::make_shared<std::packaged_task<return_type()>>(std::bind(f, args...));
         std::future<return_type> res = task->get_future();
         if(thread_count>0)
@@ -41,7 +41,7 @@ public:
     template<typename TInput, typename Func, typename... CommonArgs>
     auto ForAll(const std::vector<TInput>& inputs, Func f, CommonArgs &... args)
     {
-        using return_type = std::result_of_t<Func(TInput,CommonArgs &...)>;
+        using return_type = std::invoke_result_t<Func,TInput,CommonArgs &...>;
 
         std::vector<return_type> results;
         results.reserve(inputs.size());
@@ -138,7 +138,7 @@ private:
         else if (n < thread_count)
         {
             std::vector<std::future<void>> futures;
-            futures.reserve(thread_count-n);
+            futures.reserve(((size_t)thread_count)-((size_t)n));
             {
                 std::unique_lock<std::mutex> lock(mtx);
                 for (int i = n; i < thread_count; ++i)
