@@ -29,12 +29,5 @@ public:
         DataType mask = (B >> R) << SHIFT;
         return mask;
     }
-    //template<int BITS, int SHIFT>
-    //static constexpr DataType MaskT()
-    //{
-    //    const int S = 8 * sizeof(DataType);
-    //    DataType mask = ((~DataType(0)) >> (S - BITS)) << SHIFT;
-    //    return mask;
-    //}
 };
 
