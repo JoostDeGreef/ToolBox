@@ -2,6 +2,29 @@
 
 #include "BinaryData.h"
 
+namespace TypeSelect
+{
+    template<bool, typename T1, typename T2>
+    struct Pick
+    {};
+    template<typename T1, typename T2>
+    struct Pick<true, T1, T2>
+    {
+        typedef T1 type;
+    };
+    template<typename T1, typename T2>
+    struct Pick<false, T1, T2>
+    {
+        typedef T2 type;
+    };
+
+    template<typename T1, typename T2>
+    struct Largest
+    {
+        typedef typename Pick<(sizeof(T1) > sizeof(T2)), T1, T2>::type type;
+    };
+}
+
 template<size_t EXPONENT,size_t MANTISSA>
 class BinaryT : BinaryData<1 + EXPONENT + MANTISSA>
 {
@@ -55,10 +78,11 @@ public:
 
 private:
     void FlipSign() { data ^= MaskT<1, EXPONENT + MANTISSA>(); }
+
     static ThisType SetData(const DataType& input);
-    static DataType GetData(const float& f);
-    static DataType GetData(const double& d);
-    // static DataType GetData(const long double& ld); // TODO?
+
+    template<typename F>
+    static DataType GetData(const F& f);
 
 public:
     bool IsZero() const {
@@ -100,61 +124,17 @@ public:
         return (1 << ((DataTypeSigned)EXPONENT-1)) - 1;
     }
 
+private:
+    template<typename F>
+    F Convert() const;
+public:
     operator float() const
     {
-        union
-        {
-            float f_data;    // 1,8,23
-            uint32_t i_data;
-        };
-        i_data = GetSign() ? 0x80000000 : 0;
-        auto mantissa = GetMantissa();
-        auto exp = GetExponent();
-        if (exp > GetMaxExponent())
-        {
-            if (mantissa != 0)
-            {
-                i_data |= 0x7FFFFFFF; // NAN
-            }
-            else
-            {
-                i_data |= 0x7F800000; // INF
-            }
-        }
-        else if (exp > -GetMaxExponent())
-        {
-            if (exp <= -127)
-            {
-                // subnormal
-                // TODO
-            }
-            else if (exp > 127)
-            {
-                i_data |= 0x7F800000; // too big to fit -> INF
-            }
-            else
-            {
-                i_data |= ((uint32_t)exp + 127) << 23;
-                if (MANTISSA >= 23)
-                {
-                    i_data |= mantissa >> (int)(MANTISSA - 23);
-                }
-                else
-                {
-                    i_data |= mantissa << (23 - (int)MANTISSA);
-                }
-            }
-        }
-        else
-        {
-            // subnormal
-            // TODO
-        }
-        return f_data;
+        return Convert<float>();
     }
     operator double() const
     {
-        // TODO
+        return Convert<double>();
     }
 
     ThisType operator - () const
@@ -163,7 +143,15 @@ public:
         temp.FlipSign();
         return temp;
     }
-    ThisType operator + (const ThisType & other) const
+    ThisType operator + () const
+    {
+        return *this;
+    }
+    ThisType operator - (const ThisType & other) const
+    {
+
+    }
+    ThisType operator + (const ThisType& other) const
     {
 
     }
@@ -185,41 +173,49 @@ template<size_t EXPONENT, size_t MANTISSA>
 const BinaryT<EXPONENT, MANTISSA> BinaryT<EXPONENT, MANTISSA>::Infinite = BinaryT<EXPONENT, MANTISSA>::SetData(MaskT<EXPONENT, MANTISSA>());
 
 template<size_t EXPONENT, size_t MANTISSA>
-typename BinaryT<EXPONENT, MANTISSA>::DataType BinaryT<EXPONENT, MANTISSA>::GetData(const float& f)
+template<typename F>
+typename BinaryT<EXPONENT, MANTISSA>::DataType BinaryT<EXPONENT, MANTISSA>::GetData(const F& f)
 {
-    uint32_t& i_data = *(uint32_t*)&f;
+    using U = BinaryDataType<sizeof(F) * 8>::type;
+    using I = BinaryDataType<sizeof(F) * 8>::type_signed;
 
-    int32_t exp_i = ((i_data >> 23) & 0x000000FF) - 127;
-    uint32_t mantissa_i = i_data & 0x007FFFFF;
+    constexpr size_t MANTISSA_BITS = std::numeric_limits<F>::digits - 1; // bits in mantissa F
+    constexpr size_t EXP_BITS = sizeof(F)*8 - MANTISSA_BITS - 1;         // bits in exponent F
+    constexpr int MAX_EXP = (1 << (EXPONENT-1))-1;                       // max exp value for BinaryT
+
+    U& i_data = *(U*)&f;
+
+    I exp_i = ((i_data & (~(U)0 >> 1)) >> MANTISSA_BITS) - (1 << (EXP_BITS -1)) + 1;
+    U mantissa_i = i_data & (~(U)0 >> (1+EXP_BITS));
     
-    DataType sign = (i_data & 0x80000000) ? MaskT<1, EXPONENT + MANTISSA>() : DataType(0);
+    DataType sign = (i_data & ((U)1 << EXP_BITS+MANTISSA_BITS)) ? MaskT<1, EXPONENT + MANTISSA>() : DataType(0);
     DataType exp = 0;
     DataType mantissa = 0;
 
-    auto ShiftMantissa = [](uint32_t m)
+    auto ShiftMantissa = [&MANTISSA_BITS](U m)
     {
-        if (MANTISSA < 23)
+        if (MANTISSA < MANTISSA_BITS)
         {
-            return DataType(m >> (23 - (int)MANTISSA));
+            return DataType(m >> (MANTISSA_BITS - MANTISSA));
         }
         else
         {
-            return DataType(m << ((int)MANTISSA - 23));
+            return DataType(DataType(m) << DataType(MANTISSA - MANTISSA_BITS));
         }
     };
 
-    if (exp_i == 128)
+    if (exp_i == (1 << (EXP_BITS - 1)))
     {
         // infinity or NAN
         exp = MaskT<EXPONENT, MANTISSA>();
         mantissa = ShiftMantissa(mantissa_i);
     }
-    else if (exp_i > 15) // TODO: make this depend on the output type
+    else if (exp_i > MAX_EXP)
     {
         // overflow to infinity
         exp = MaskT<EXPONENT, MANTISSA>();
     }
-    else if (exp_i > -15) // TODO: make this depend on the output type
+    else if (exp_i > -MAX_EXP)
     {
         // normalized case. 
         // TODO: proper rounding?
@@ -227,19 +223,79 @@ typename BinaryT<EXPONENT, MANTISSA>::DataType BinaryT<EXPONENT, MANTISSA>::GetD
         exp = DataType(exp_i + (1 << ((int)EXPONENT - 1)) - 1);
         exp = exp << (int)MANTISSA;
     }
-    else if (exp_i > -25)
+    else
     {
-        // convert to subnormal
+        // convert to subnormal, or zero, or underflow
         // TODO
-    }
-    else 
-    {
-        // zero, or underflow
     }
     return sign | exp | mantissa;
 }
+
+
 template<size_t EXPONENT, size_t MANTISSA>
-typename BinaryT<EXPONENT, MANTISSA>::DataType BinaryT<EXPONENT, MANTISSA>::GetData(const double& d)
+template<typename F>
+F BinaryT<EXPONENT, MANTISSA>::Convert() const
 {
-    // TODO
+    constexpr size_t MANTISSA_BITS = std::numeric_limits<F>::digits - 1; // bits in mantissa F
+    constexpr size_t EXP_BITS = sizeof(F) * 8 - MANTISSA_BITS - 1;       // bits in exponent F
+
+    using I = BinaryDataType<1 + EXP_BITS + MANTISSA_BITS>::type;
+    union
+    {
+        F f_data;
+        I i_data;
+    };
+    i_data = GetSign() ? ((I)1 << (I)(EXP_BITS + MANTISSA_BITS)) : (I)0;
+    auto mantissa = GetMantissa();
+    auto exp = GetExponent();
+    if (exp > GetMaxExponent())
+    {
+        if (mantissa != 0)
+        {
+            i_data |= (~(I)0) >> 1; // NAN
+        }
+        else
+        {
+            constexpr auto f = std::numeric_limits<F>::infinity();
+            i_data |= *(I*)&f; // INF
+        }
+    }
+    else if (exp > -GetMaxExponent())
+    {
+        auto MAX_EXP = ((1 << EXP_BITS - 1) - 1);
+        if (exp <= -MAX_EXP)
+        {
+            // subnormal
+            // TODO
+        }
+        else if (exp > MAX_EXP)
+        {
+            constexpr auto f = std::numeric_limits<F>::infinity();
+            i_data |= *(I*)&f; // INF
+        }
+        else
+        {
+            i_data |= (I)(exp + MAX_EXP) << (I)MANTISSA_BITS;
+            if (MANTISSA == MANTISSA_BITS)
+            {
+                i_data |= mantissa;
+            }
+            else if (MANTISSA > MANTISSA_BITS)
+            {
+                I i = (I)(MANTISSA - MANTISSA_BITS);
+                i_data |= mantissa >> i;
+            }
+            else
+            {
+                I i = (I)(MANTISSA_BITS - MANTISSA);
+                i_data |= mantissa << i;
+            }
+        }
+    }
+    else
+    {
+        // subnormal
+        // TODO
+    }
+    return f_data;
 }

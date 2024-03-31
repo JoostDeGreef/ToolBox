@@ -80,3 +80,14 @@ TYPED_TEST(BinaryTest, ConversionFloat)
     EXPECT_FALSE(b.IsNegative());
     EXPECT_FLOAT_EQ(1.0f, (float)b);
 }
+
+TYPED_TEST(BinaryTest, ConversionDouble)
+{
+    TypeParam b(1.0);
+    EXPECT_FALSE(b.IsInfinite());
+    EXPECT_FALSE(b.IsNaN());
+    EXPECT_FALSE(b.IsZero());
+    EXPECT_TRUE(b.IsPositive());
+    EXPECT_FALSE(b.IsNegative());
+    EXPECT_FLOAT_EQ(1.0, (double)b);
+}
